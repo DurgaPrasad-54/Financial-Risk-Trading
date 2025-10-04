@@ -125,6 +125,32 @@ st.markdown("""
     .trade-sell {
         border-color: #E74C3C;
     }
+    
+    /* Sidebar Button Styling */
+    .stButton button {
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stButton button:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 12px rgba(0, 217, 255, 0.2);
+    }
+    
+    /* Chart Containers */
+    .js-plotly-plot {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    /* Dataframe Styling */
+    .stDataFrame {
+        border-radius: 8px;
+        overflow: hidden;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -136,10 +162,10 @@ def load_csv_safe(path):
         df.columns = df.columns.str.strip()
         return df
     except FileNotFoundError:
-        st.warning(f"⚠️ File not found: {path}")
+        st.warning(f"File not found: {path}")
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"⚠️ Error loading {path}: {str(e)}")
+        st.error(f"Error loading {path}: {str(e)}")
         return pd.DataFrame()
 
 # ---------------- Load All Data ----------------
@@ -154,28 +180,94 @@ with st.spinner("Loading data..."):
     tca_summary = load_csv_safe("./Transaction Cost Analysis (TCA)/weekly_tca_summary.csv")
 
 # ---------------- Sidebar Navigation ----------------
-st.sidebar.title(" Financial Risk & Trading")
-st.sidebar.markdown("---")
-section = st.sidebar.radio(
-    "Select View",
-    ["🏠 Executive Dashboard", "🎯 Risk Analytics", "🔄 Backtesting Comparison", 
-     "💼 Portfolio & Trades", "💸 TCA & Attribution", "⚠️ Alerts & Monitoring"],
-    label_visibility="collapsed"
-)
+st.sidebar.markdown("""
+<div style='text-align: center; padding: 1.5rem 0 1rem 0;'>
+    <h2 style='color: #00D9FF; margin: 0; font-size: 1.5rem;'>Financial Risk</h2>
+    <p style='color: #B0B0B0; font-size: 0.9rem; margin: 0.5rem 0 0 0;'>Analytics & Trading Platform</p>
+</div>
+""", unsafe_allow_html=True)
 
-section = section.split(" ", 1)[1]
+st.sidebar.markdown("<div style='height: 2px; background: linear-gradient(90deg, transparent, #00D9FF, transparent); margin: 1rem 0;'></div>", unsafe_allow_html=True)
 
-# Sidebar info
-st.sidebar.markdown("---")
-st.sidebar.info(f"**Last Updated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-st.sidebar.markdown(f"""**Records Loaded:**
-- Risk Metrics: {len(risk_metrics)}
-- Sector Exposure: {len(sector_exposure)}
-- Backtest: {len(backtest_results)}
-- Portfolio: {len(target_weights)}
-- Trades: {len(trade_recommendations)}
-- TCA: {len(tca_summary)}
-""")
+# Navigation Menu with Custom Styling
+st.sidebar.markdown("<p style='color: #B0B0B0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin: 1.5rem 0 0.5rem 0;'>Navigation</p>", unsafe_allow_html=True)
+
+menu_options = {
+    "Executive Dashboard": "dashboard",
+    "Risk Analytics": "risk",
+    "Backtesting Comparison": "backtest",
+    "Portfolio & Trades": "portfolio",
+    "TCA & Attribution": "tca",
+    "Alerts & Monitoring": "alerts"
+}
+
+# Create custom buttons for navigation
+if 'selected_section' not in st.session_state:
+    st.session_state.selected_section = "Executive Dashboard"
+
+for option, key in menu_options.items():
+    is_selected = st.session_state.selected_section == option
+    
+    if st.sidebar.button(
+        option,
+        key=f"nav_{key}",
+        use_container_width=True,
+        type="primary" if is_selected else "secondary"
+    ):
+        st.session_state.selected_section = option
+        st.rerun()
+
+section = st.session_state.selected_section
+
+# Sidebar Statistics
+st.sidebar.markdown("<div style='height: 2px; background: linear-gradient(90deg, transparent, #00D9FF, transparent); margin: 2rem 0 1rem 0;'></div>", unsafe_allow_html=True)
+
+st.sidebar.markdown("<p style='color: #B0B0B0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin: 1rem 0 0.5rem 0;'>System Status</p>", unsafe_allow_html=True)
+
+st.sidebar.markdown(f"""
+<div style='background: #1E1E2F; padding: 1rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05);'>
+    <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'>
+        <span style='color: #B0B0B0; font-size: 0.85rem;'>Last Updated</span>
+        <span style='color: #00D9FF; font-size: 0.85rem; font-weight: 600;'>{datetime.now().strftime('%H:%M')}</span>
+    </div>
+    <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'>
+        <span style='color: #B0B0B0; font-size: 0.85rem;'>Risk Metrics</span>
+        <span style='color: #2ECC71; font-size: 0.85rem; font-weight: 600;'>{len(risk_metrics)}</span>
+    </div>
+    <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'>
+        <span style='color: #B0B0B0; font-size: 0.85rem;'>Sectors</span>
+        <span style='color: #2ECC71; font-size: 0.85rem; font-weight: 600;'>{len(sector_exposure)}</span>
+    </div>
+    <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'>
+        <span style='color: #B0B0B0; font-size: 0.85rem;'>Positions</span>
+        <span style='color: #2ECC71; font-size: 0.85rem; font-weight: 600;'>{len(target_weights)}</span>
+    </div>
+    <div style='display: flex; justify-content: space-between;'>
+        <span style='color: #B0B0B0; font-size: 0.85rem;'>Trades</span>
+        <span style='color: #F1C40F; font-size: 0.85rem; font-weight: 600;'>{len(trade_recommendations)}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Connection Status
+st.sidebar.markdown(f"""
+<div style='margin-top: 1rem; padding: 0.75rem; background: rgba(46, 204, 113, 0.1); border-radius: 6px; border-left: 3px solid #2ECC71;'>
+    <div style='display: flex; align-items: center;'>
+        <div style='width: 8px; height: 8px; background: #2ECC71; border-radius: 50%; margin-right: 0.5rem;'></div>
+        <span style='color: #2ECC71; font-size: 0.85rem; font-weight: 600;'>System Online</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Footer
+st.sidebar.markdown("""
+<div style='position: fixed; bottom: 0; left: 0; width: 19rem; padding: 1rem; background: #0E1117; border-top: 1px solid rgba(255, 255, 255, 0.05);'>
+    <p style='color: #666; font-size: 0.75rem; margin: 0; text-align: center;'>
+        © 2025 Risk Analytics Platform<br>
+        <span style='color: #00D9FF;'>Version 2.0.0</span>
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
 # ---------------- Helper Functions ----------------
 def get_safe_value(series, index=-1, default=0.0):
@@ -284,7 +376,7 @@ if section == "Executive Dashboard":
             
             st.plotly_chart(fig, use_container_width=True, key="sector_exposure")
         else:
-            st.info("ℹ️ No sector exposure data available")
+            st.info("No sector exposure data available")
     
     with col_right:
         st.markdown("<div class='section-header'><h3>Stress Scenarios</h3></div>", unsafe_allow_html=True)
@@ -315,7 +407,7 @@ if section == "Executive Dashboard":
     col_alloc, col_tca = st.columns(2)
     
     with col_alloc:
-        st.markdown("<div class='section-header'><h3>Top 10 Holdings</h3></div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-header'><h3>Top Holdings</h3></div>", unsafe_allow_html=True)
         
         if not target_weights.empty and "Target Weight" in target_weights.columns:
             top_holdings = target_weights.nlargest(10, 'Target Weight')
@@ -380,7 +472,7 @@ elif section == "Risk Analytics":
     st.markdown("Comprehensive risk metrics and factor exposure analysis")
     st.markdown("---")
     
-    # Top KPI Cards - Same as Dashboard
+    # Top KPI Cards
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -408,8 +500,6 @@ elif section == "Risk Analytics":
             kpi_card("ES 99%", val, change, '#F1C40F')
     
     st.markdown("<br>", unsafe_allow_html=True)
-    
-   
     
     # Stress Testing
     st.markdown("<div class='section-header'><h3>Stress Test Scenarios</h3></div>", unsafe_allow_html=True)
@@ -546,7 +636,7 @@ elif section == "Backtesting Comparison":
             best_sharpe = combined.loc[combined['Sharpe'].idxmax()]
             st.markdown(f"""
                 <div class='alert-box alert-success'>
-                    <strong>🏆 Best Sharpe Ratio:</strong><br>
+                    <strong>Best Sharpe Ratio:</strong><br>
                     {best_sharpe['Strategy']} ({best_sharpe['Method']})<br>
                     Sharpe: {best_sharpe['Sharpe']:.6f}
                 </div>
@@ -597,7 +687,7 @@ elif section == "Portfolio & Trades":
         col_buy, col_sell = st.columns(2)
         
         with col_buy:
-            st.markdown("#### 🟢 Top Buys")
+            st.markdown("#### Top Buys")
             buys = top_trades[top_trades['Change (Buy/Sell)'] > 0].head(7)
             
             for _, trade in buys.iterrows():
@@ -620,7 +710,7 @@ elif section == "Portfolio & Trades":
                 """, unsafe_allow_html=True)
         
         with col_sell:
-            st.markdown("#### 🔴 Top Sells")
+            st.markdown("#### Top Sells")
             sells = top_trades[top_trades['Change (Buy/Sell)'] < 0].head(7)
             
             for _, trade in sells.iterrows():
@@ -928,7 +1018,7 @@ elif section == "Alerts & Monitoring":
     
     # Sector Concentration Alerts
     if not sector_exposure.empty:
-        sector_limit = 0.05  # 5% limit
+        sector_limit = 0.05
         
         for _, row in sector_exposure.iterrows():
             if abs(row['portfolio_weight']) > sector_limit:
