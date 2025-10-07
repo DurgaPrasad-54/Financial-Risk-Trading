@@ -126,7 +126,7 @@ st.markdown("""
         border-color: #E74C3C;
     }
     
-    /* Sidebar Button Styling */
+    /* Sidebar Styling */
     .stButton button {
         transition: all 0.3s ease;
         font-size: 0.95rem;
@@ -174,9 +174,14 @@ with st.spinner("Loading data..."):
     sector_exposure = load_csv_safe("./Risk Analytics Module/sector_exposure.csv")
     backtest_results = load_csv_safe("./Backtesting Framework & Strategies/backtest_results.csv")
     backtest_wf = load_csv_safe("./Backtesting Framework & Strategies/backtest_results_walkforward.csv")
-    target_weights = load_csv_safe("./Portfolio Optimization Module/target_weights.csv")
-    trade_recommendations = load_csv_safe("./Portfolio Optimization Module/trade_recommendations.csv")
-    portfolio_risk_returns = load_csv_safe("./Portfolio Optimization Module/portfolio_risk_return.csv")
+    
+    # NEW: Load updated portfolio optimization files with instrument names
+    target_weights = load_csv_safe("./Portfolio Optimization Module/target_weights_with_names.csv")
+    trade_recommendations = load_csv_safe("./Portfolio Optimization Module/trade_recommendations_with_names.csv")
+    portfolio_risk_returns = load_csv_safe("./Portfolio Optimization Module/portfolio_risk_return_report.csv")
+    risk_budget = load_csv_safe("./Portfolio Optimization Module/risk_budget_report.csv")
+    sector_allocation = load_csv_safe("./Portfolio Optimization Module/sector_allocation_report.csv")
+    
     tca_summary = load_csv_safe("./Transaction Cost Analysis (TCA)/weekly_tca_summary.csv")
 
 # ---------------- Sidebar Navigation ----------------
@@ -189,19 +194,19 @@ st.sidebar.markdown("""
 
 st.sidebar.markdown("<div style='height: 2px; background: linear-gradient(90deg, transparent, #00D9FF, transparent); margin: 1rem 0;'></div>", unsafe_allow_html=True)
 
-# Navigation Menu with Custom Styling
+# Navigation Menu
 st.sidebar.markdown("<p style='color: #B0B0B0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin: 1.5rem 0 0.5rem 0;'>Navigation</p>", unsafe_allow_html=True)
 
 menu_options = {
     "Executive Dashboard": "dashboard",
     "Risk Analytics": "risk",
     "Backtesting Comparison": "backtest",
-    "Portfolio & Trades": "portfolio",
+    "Portfolio Optimization": "portfolio",
+    "Risk Budget Analysis": "risk_budget",
     "TCA & Attribution": "tca",
     "Alerts & Monitoring": "alerts"
 }
 
-# Create custom buttons for navigation
 if 'selected_section' not in st.session_state:
     st.session_state.selected_section = "Executive Dashboard"
 
@@ -270,8 +275,13 @@ st.sidebar.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------- Helper Functions ----------------
-def get_safe_value(series, index=-1, default=0.0):
+def get_safe_value(series_or_df, column=None, index=-1, default=0.0):
     try:
+        if column and isinstance(series_or_df, pd.DataFrame):
+            series = series_or_df[column]
+        else:
+            series = series_or_df
+        
         series_clean = series.dropna()
         if len(series_clean) > 0:
             return float(series_clean.iloc[index])
@@ -291,7 +301,7 @@ def calculate_change(series, periods=1):
     except:
         return 0.0
 
-def kpi_card(title, value, change=None, color='#00D9FF', format_str='.2f'):
+def kpi_card(title, value, change=None, color='#00D9FF', format_str='.2f', suffix=''):
     change_html = ""
     if change is not None:
         change_color = '#2ECC71' if change < 0 else '#E74C3C'
@@ -301,7 +311,7 @@ def kpi_card(title, value, change=None, color='#00D9FF', format_str='.2f'):
     st.markdown(f"""
         <div class='kpi-card'>
             <div class='kpi-title'>{title}</div>
-            <div class='kpi-value' style='color:{color}'>{value:{format_str}}</div>
+            <div class='kpi-value' style='color:{color}'>{value:{format_str}}{suffix}</div>
             {change_html}
         </div>
     """, unsafe_allow_html=True)
@@ -319,23 +329,28 @@ if section == "Executive Dashboard":
         if not risk_metrics.empty and "VaR_95" in risk_metrics.columns:
             val = get_safe_value(risk_metrics["VaR_95"])
             change = calculate_change(risk_metrics["VaR_95"])
-            kpi_card("VaR 95%", val, change, '#E74C3C')
+            kpi_card("VaR 95%", val, change, '#E74C3C', '.2f', '%')
     
     with col2:
         if not risk_metrics.empty and "ES_95" in risk_metrics.columns:
             val = get_safe_value(risk_metrics["ES_95"])
             change = calculate_change(risk_metrics["ES_95"])
-            kpi_card("ES 95%", val, change, '#E74C3C')
+            kpi_card("ES 95%", val, change, '#E74C3C', '.2f', '%')
     
     with col3:
-        if not portfolio_risk_returns.empty and "Expected Return" in portfolio_risk_returns.columns:
-            val = get_safe_value(portfolio_risk_returns["Expected Return"]) * 100
-            kpi_card("Expected Return", val, None, '#00D9FF', '.4f')
+        if not portfolio_risk_returns.empty and "Optimized Portfolio" in portfolio_risk_returns.columns:
+            # Extract return value from the string format
+            return_str = portfolio_risk_returns[portfolio_risk_returns['Metric'] == 'Expected Annual Return']['Optimized Portfolio'].values
+            if len(return_str) > 0:
+                val = float(return_str[0].strip('%'))
+                kpi_card("Expected Return", val, None, '#00D9FF', '.2f', '%')
     
     with col4:
-        if not portfolio_risk_returns.empty and "Sharpe Ratio" in portfolio_risk_returns.columns:
-            val = get_safe_value(portfolio_risk_returns["Sharpe Ratio"])
-            kpi_card("Sharpe Ratio", val, None, '#FFD93D')
+        if not portfolio_risk_returns.empty and "Optimized Portfolio" in portfolio_risk_returns.columns:
+            sharpe_str = portfolio_risk_returns[portfolio_risk_returns['Metric'] == 'Sharpe Ratio']['Optimized Portfolio'].values
+            if len(sharpe_str) > 0:
+                val = float(sharpe_str[0])
+                kpi_card("Sharpe Ratio", val, None, '#FFD93D', '.3f')
     
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -344,26 +359,40 @@ if section == "Executive Dashboard":
     
     with col_left:
         st.markdown("<div class='section-header'><h3>Sector Exposure</h3></div>", unsafe_allow_html=True)
-        
-        if not sector_exposure.empty:
-            sector_data = sector_exposure.copy()
-            sector_data['portfolio_weight'] = sector_data['portfolio_weight'] * 100
-            sector_data = sector_data.sort_values('portfolio_weight')
+        if not sector_allocation.empty:
+            sector_data = sector_allocation.copy() 
+            # Handle different possible column structures
+            if len(sector_data.columns) == 2:
+                sector_data.columns = ['sector', 'target_weight']
+                sector_data['num_holdings'] = 1  # Default value
+            elif len(sector_data.columns) == 3:
+                sector_data.columns = ['sector', 'target_weight', 'num_holdings']
+            else:
+                # Use first available columns
+                sector_data = sector_data.iloc[:, :2]
+                sector_data.columns = ['sector', 'target_weight']
+                sector_data['num_holdings'] = 1
+            
+            # FIX: Ensure target_weight is numeric before formatting
+            sector_data['target_weight'] = pd.to_numeric(sector_data['target_weight'], errors='coerce')
+            sector_data = sector_data.dropna(subset=['target_weight'])  # Remove any NaN values
+            sector_data['target_weight'] = sector_data['target_weight'] * 100
+            sector_data = sector_data.sort_values('target_weight')
             
             fig = go.Figure()
             
-            colors = ['#2ECC71' if x > 0 else '#E74C3C' for x in sector_data['portfolio_weight']]
+            colors = ['#2ECC71' if x > 0 else '#E74C3C' for x in sector_data['target_weight']]
             
             fig.add_trace(go.Bar(
-                x=sector_data['portfolio_weight'],
+                x=sector_data['target_weight'],
                 y=sector_data['sector'],
                 orientation='h',
                 marker=dict(color=colors),
-                text=sector_data['portfolio_weight'].apply(lambda x: f'{x:.3f}%'),
+                text=sector_data['target_weight'].apply(lambda x: f'{x:.2f}%'),
                 textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Weight: %{x:.3f}%<extra></extra>'
+                hovertemplate='<b>%{y}</b><br>Weight: %{x:.2f}%<br>Holdings: %{customdata}<extra></extra>',
+                customdata=sector_data['num_holdings']
             ))
-            
             fig.update_layout(
                 height=350,
                 plot_bgcolor='#0E1117',
@@ -374,32 +403,38 @@ if section == "Executive Dashboard":
                 margin=dict(l=20, r=20, t=20, b=40)
             )
             
-            st.plotly_chart(fig, use_container_width=True, key="sector_exposure")
+            st.plotly_chart(fig, width='stretch', key="sector_exposure")
         else:
-            st.info("No sector exposure data available")
+            st.info("No sector allocation data available")
     
     with col_right:
-        st.markdown("<div class='section-header'><h3>Stress Scenarios</h3></div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-header'><h3>Portfolio Metrics</h3></div>", unsafe_allow_html=True)
         
-        if not risk_metrics.empty:
-            stress_cols = ["Rate_Shock", "Volatility_Spike", "Sector_Drawdown"]
-            available = [c for c in stress_cols if c in risk_metrics.columns]
+        if not portfolio_risk_returns.empty:
+            metrics_display = portfolio_risk_returns[['Metric', 'Optimized Portfolio']].head(6)
             
-            if available:
-                latest_stress = risk_metrics[available].iloc[-1]
+            for _, row in metrics_display.iterrows():
+                metric = row['Metric']
+                value = row['Optimized Portfolio']
                 
-                for col in available:
-                    val = latest_stress[col]
-                    color = '#E74C3C' if val < -0.5 else '#F1C40F' if val < 0 else '#2ECC71'
-                    
-                    st.markdown(f"""
-                        <div class='trade-card' style='border-color: {color}'>
-                            <div style='display: flex; justify-content: space-between;'>
-                                <span style='font-weight: 600;'>{col.replace('_', ' ')}</span>
-                                <span style='color: {color}; font-weight: 700; font-size: 1.1rem;'>{val:.3f}%</span>
-                            </div>
+                # Determine color based on metric type
+                if 'Return' in metric or 'Sharpe' in metric:
+                    color = '#2ECC71'
+                elif 'Volatility' in metric or 'Risk' in metric or 'VaR' in metric:
+                    color = '#F1C40F'
+                elif 'Drawdown' in metric:
+                    color = '#E74C3C'
+                else:
+                    color = '#00D9FF'
+                
+                st.markdown(f"""
+                    <div class='trade-card' style='border-color: {color}'>
+                        <div style='display: flex; justify-content: space-between;'>
+                            <span style='font-weight: 600;'>{metric}</span>
+                            <span style='color: {color}; font-weight: 700; font-size: 1.1rem;'>{value}</span>
                         </div>
-                    """, unsafe_allow_html=True)
+                    </div>
+                """, unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
     
@@ -409,16 +444,17 @@ if section == "Executive Dashboard":
     with col_alloc:
         st.markdown("<div class='section-header'><h3>Top Holdings</h3></div>", unsafe_allow_html=True)
         
-        if not target_weights.empty and "Target Weight" in target_weights.columns:
-            top_holdings = target_weights.nlargest(10, 'Target Weight')
+        if not target_weights.empty and "target_weight" in target_weights.columns:
+            top_holdings = target_weights.nlargest(10, 'target_weight')
             
             fig = px.bar(
                 top_holdings,
-                x='Target Weight',
-                y='Instrument',
+                x='target_weight',
+                y='instrument_name',
                 orientation='h',
-                color='Target Weight',
-                color_continuous_scale='Blues'
+                color='target_weight',
+                color_continuous_scale='Blues',
+                labels={'target_weight': 'Weight', 'instrument_name': ''}
             )
             
             fig.update_layout(
@@ -432,7 +468,7 @@ if section == "Executive Dashboard":
                 margin=dict(l=20, r=20, t=20, b=40)
             )
             
-            st.plotly_chart(fig, use_container_width=True, key="top_holdings")
+            st.plotly_chart(fig, width='stretch', key="top_holdings")
     
     with col_tca:
         st.markdown("<div class='section-header'><h3>TCA Trend</h3></div>", unsafe_allow_html=True)
@@ -464,7 +500,7 @@ if section == "Executive Dashboard":
                 margin=dict(l=50, r=20, t=20, b=40)
             )
             
-            st.plotly_chart(fig, use_container_width=True, key="tca_trend")
+            st.plotly_chart(fig, width='stretch', key="tca_trend")
 
 # ---------------- RISK ANALYTICS ----------------
 elif section == "Risk Analytics":
@@ -534,7 +570,7 @@ elif section == "Risk Analytics":
                 hovermode='x unified'
             )
             
-            st.plotly_chart(fig, use_container_width=True, key="stress_test")
+            st.plotly_chart(fig, width='stretch', key="stress_test")
     
     # Sector Exposure Table
     st.markdown("<div class='section-header'><h3>Detailed Sector Breakdown</h3></div>", unsafe_allow_html=True)
@@ -545,7 +581,7 @@ elif section == "Risk Analytics":
         sector_display.columns = ['Sector', 'Portfolio Weight (%)']
         
         st.dataframe(sector_display.style.format({'Portfolio Weight (%)': '{:.4f}'}),
-                    use_container_width=True, height=300)
+                    width='stretch', height=300)
 
 # ---------------- BACKTESTING COMPARISON ----------------
 elif section == "Backtesting Comparison":
@@ -611,7 +647,7 @@ elif section == "Backtesting Comparison":
         fig.update_xaxes(showgrid=False)
         fig.update_yaxes(gridcolor='#2A2A3E')
         
-        st.plotly_chart(fig, use_container_width=True, key="strategy_comparison")
+        st.plotly_chart(fig, width='stretch', key="strategy_comparison")
         
         # Detailed Table
         st.markdown("<div class='section-header'><h3>Detailed Comparison Table</h3></div>", unsafe_allow_html=True)
@@ -623,7 +659,7 @@ elif section == "Backtesting Comparison":
                 'Sharpe': '{:.6f}',
                 'Max Drawdown': '{:.4f}'
             }),
-            use_container_width=True,
+            width='stretch',
             height=250
         )
         
@@ -652,57 +688,80 @@ elif section == "Backtesting Comparison":
                 </div>
             """, unsafe_allow_html=True)
 
-# ---------------- PORTFOLIO & TRADES ----------------
-elif section == "Portfolio & Trades":
+# ---------------- PORTFOLIO OPTIMIZATION ----------------
+elif section == "Portfolio Optimization":
     st.title("Portfolio Optimization & Trade Recommendations")
-    st.markdown("Target allocations and recommended trades")
+    st.markdown("Target allocations with instrument names and recommended trades")
     st.markdown("---")
     
     # Expected Risk/Return
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     if not portfolio_risk_returns.empty:
+        # Parse metrics from the report
+        metrics_dict = {}
+        for _, row in portfolio_risk_returns.iterrows():
+            metric = row['Metric']
+            opt_value = row['Optimized Portfolio']
+            metrics_dict[metric] = opt_value
+        
         with col1:
-            exp_return = get_safe_value(portfolio_risk_returns["Expected Return"]) * 100
-            kpi_card("Expected Return", exp_return, None, '#00D9FF', '.4f')
+            return_val = metrics_dict.get('Expected Annual Return', 'N/A')
+            if return_val != 'N/A':
+                val = float(return_val.strip('%'))
+                kpi_card("Expected Return", val, None, '#00D9FF', '.2f', '%')
         
         with col2:
-            exp_vol = get_safe_value(portfolio_risk_returns["Expected Volatility"]) * 100
-            kpi_card("Expected Volatility", exp_vol, None, '#F1C40F', '.4f')
+            vol_val = metrics_dict.get('Expected Volatility', 'N/A')
+            if vol_val != 'N/A':
+                val = float(vol_val.strip('%'))
+                kpi_card("Expected Volatility", val, None, '#F1C40F', '.2f', '%')
         
         with col3:
-            sharpe = get_safe_value(portfolio_risk_returns["Sharpe Ratio"])
-            kpi_card("Portfolio Sharpe", sharpe, None, '#2ECC71')
+            sharpe_val = metrics_dict.get('Sharpe Ratio', 'N/A')
+            if sharpe_val != 'N/A':
+                val = float(sharpe_val)
+                kpi_card("Portfolio Sharpe", val, None, '#2ECC71', '.3f')
+        
+        with col4:
+            turnover_val = metrics_dict.get('Total Turnover', 'N/A')
+            if turnover_val != 'N/A':
+                val = float(turnover_val.strip('%'))
+                kpi_card("Total Turnover", val, None, '#00D9FF', '.2f', '%')
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Trade Recommendations
+    # Trade Recommendations with Instrument Names
     st.markdown("<div class='section-header'><h3>Recommended Trades</h3></div>", unsafe_allow_html=True)
     
-    if not trade_recommendations.empty and "Change (Buy/Sell)" in trade_recommendations.columns:
+    if not trade_recommendations.empty and "change" in trade_recommendations.columns:
         trades = trade_recommendations.copy()
-        trades['abs_change'] = trades['Change (Buy/Sell)'].abs()
+        trades['abs_change'] = trades['change'].abs()
         top_trades = trades.nlargest(15, 'abs_change')
         
         col_buy, col_sell = st.columns(2)
         
         with col_buy:
             st.markdown("#### Top Buys")
-            buys = top_trades[top_trades['Change (Buy/Sell)'] > 0].head(7)
+            buys = top_trades[top_trades['change'] > 0].head(7)
             
             for _, trade in buys.iterrows():
+                instrument_name = trade.get('instrument_name', trade.get('instrument_id', 'Unknown'))
+                sector = trade.get('sector', 'N/A')
+                
                 st.markdown(f"""
                     <div class='trade-card trade-buy'>
                         <div style='display: flex; justify-content: space-between; align-items: center;'>
                             <div>
-                                <strong>{trade['Instrument']}</strong><br>
+                                <strong>{instrument_name}</strong><br>
+                                <span style='font-size: 0.75rem; color: #888;'>{sector}</span><br>
                                 <span style='font-size: 0.85rem; color: #B0B0B0;'>
-                                    {trade['Current Weight']:.6f} → {trade['Target Weight']:.6f}
+                                    {trade['current_weight']:.4f} → {trade['target_weight']:.4f}
                                 </span>
                             </div>
                             <div style='text-align: right;'>
                                 <span style='color: #2ECC71; font-weight: 700; font-size: 1.1rem;'>
-                                    +{trade['Change (Buy/Sell)']:.6f}
+                                    +{trade['change']:.4f}
                                 </span>
                             </div>
                         </div>
@@ -711,21 +770,25 @@ elif section == "Portfolio & Trades":
         
         with col_sell:
             st.markdown("#### Top Sells")
-            sells = top_trades[top_trades['Change (Buy/Sell)'] < 0].head(7)
+            sells = top_trades[top_trades['change'] < 0].head(7)
             
             for _, trade in sells.iterrows():
+                instrument_name = trade.get('instrument_name', trade.get('instrument_id', 'Unknown'))
+                sector = trade.get('sector', 'N/A')
+                
                 st.markdown(f"""
                     <div class='trade-card trade-sell'>
                         <div style='display: flex; justify-content: space-between; align-items: center;'>
                             <div>
-                                <strong>{trade['Instrument']}</strong><br>
+                                <strong>{instrument_name}</strong><br>
+                                <span style='font-size: 0.75rem; color: #888;'>{sector}</span><br>
                                 <span style='font-size: 0.85rem; color: #B0B0B0;'>
-                                    {trade['Current Weight']:.6f} → {trade['Target Weight']:.6f}
+                                    {trade['current_weight']:.4f} → {trade['target_weight']:.4f}
                                 </span>
                             </div>
                             <div style='text-align: right;'>
                                 <span style='color: #E74C3C; font-weight: 700; font-size: 1.1rem;'>
-                                    {trade['Change (Buy/Sell)']:.6f}
+                                    {trade['change']:.4f}
                                 </span>
                             </div>
                         </div>
@@ -738,13 +801,13 @@ elif section == "Portfolio & Trades":
         st.markdown("<div class='section-header'><h3>Trade Summary</h3></div>", unsafe_allow_html=True)
         
         total_turnover = trades['abs_change'].sum()
-        num_buys = len(trades[trades['Change (Buy/Sell)'] > 0])
-        num_sells = len(trades[trades['Change (Buy/Sell)'] < 0])
+        num_buys = len(trades[trades['change'] > 0.001])
+        num_sells = len(trades[trades['change'] < -0.001])
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            kpi_card("Total Turnover", total_turnover, None, '#00D9FF', '.6f')
+            kpi_card("Total Turnover", total_turnover * 100, None, '#00D9FF', '.2f', '%')
         with col2:
             st.markdown(f"""
                 <div class='kpi-card'>
@@ -760,17 +823,178 @@ elif section == "Portfolio & Trades":
                 </div>
             """, unsafe_allow_html=True)
         
-        # Full Trade Table
+        # Full Trade Table with Instrument Names
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<div class='section-header'><h3>Complete Trade List</h3></div>", unsafe_allow_html=True)
         
+        display_cols = ['instrument_name', 'sector', 'current_weight', 'target_weight', 'change']
+        available_cols = [col for col in display_cols if col in trades.columns]
+        
         st.dataframe(
-            trades.style.format({
-                'Current Weight': '{:.6f}',
-                'Target Weight': '{:.6f}',
-                'Change (Buy/Sell)': '{:.6f}'
+            trades[available_cols].style.format({
+                'current_weight': '{:.6f}',
+                'target_weight': '{:.6f}',
+                'change': '{:.6f}'
             }),
-            use_container_width=True,
+            width='stretch',
+            height=400
+        )
+        
+        # Sector-wise Trade Summary
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div class='section-header'><h3>Sector-wise Trade Analysis</h3></div>", unsafe_allow_html=True)
+        
+        if 'sector' in trades.columns:
+            sector_trades = trades.groupby('sector').agg({
+                'change': ['sum', 'count'],
+                'abs_change': 'sum'
+            }).round(4)
+            sector_trades.columns = ['Net Change', 'Num Trades', 'Total Turnover']
+            sector_trades = sector_trades.sort_values('Total Turnover', ascending=False)
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                x=sector_trades.index,
+                y=sector_trades['Total Turnover'],
+                marker_color='#00D9FF',
+                text=sector_trades['Total Turnover'].apply(lambda x: f'{x:.4f}'),
+                textposition='outside',
+                hovertemplate='<b>%{x}</b><br>Turnover: %{y:.4f}<br>Trades: %{customdata}<extra></extra>',
+                customdata=sector_trades['Num Trades']
+            ))
+            
+            fig.update_layout(
+                height=350,
+                plot_bgcolor='#0E1117',
+                paper_bgcolor='#0E1117',
+                font=dict(color='#FAFAFA'),
+                xaxis=dict(title="Sector", gridcolor='#2A2A3E'),
+                yaxis=dict(title="Total Turnover", gridcolor='#2A2A3E'),
+                margin=dict(l=20, r=20, t=20, b=40)
+            )
+            
+            st.plotly_chart(fig, width='stretch', key="sector_trades")
+
+# ---------------- RISK BUDGET ANALYSIS ----------------
+elif section == "Risk Budget Analysis":
+    st.title("Risk Budget & Contribution Analysis")
+    st.markdown("Detailed risk contribution by asset and sector")
+    st.markdown("---")
+    
+    if not risk_budget.empty:
+        # Top Risk Contributors
+        st.markdown("<div class='section-header'><h3>Top Risk Contributors</h3></div>", unsafe_allow_html=True)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_risk = risk_budget['risk_contribution'].sum()
+            kpi_card("Total Risk", total_risk * 100, None, '#E74C3C', '.2f', '%')
+        
+        with col2:
+            max_contrib = risk_budget['risk_contribution'].max()
+            kpi_card("Max Contributor", max_contrib * 100, None, '#F1C40F', '.2f', '%')
+        
+        with col3:
+            avg_contrib = risk_budget['risk_contribution'].mean()
+            kpi_card("Avg Contribution", avg_contrib * 100, None, '#00D9FF', '.2f', '%')
+        
+        with col4:
+            num_assets = len(risk_budget[risk_budget['weight'] > 0.001])
+            st.markdown(f"""
+                <div class='kpi-card'>
+                    <div class='kpi-title'>Active Positions</div>
+                    <div class='kpi-value' style='color:#2ECC71'>{num_assets}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Risk Contribution Chart
+        top_risk = risk_budget.nlargest(15, 'risk_contribution')
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            y=top_risk['instrument_name'],
+            x=top_risk['risk_contribution_pct'],
+            orientation='h',
+            marker_color='#FF5733',
+            text=top_risk['risk_contribution_pct'].apply(lambda x: f'{x:.2f}%'),
+            textposition='outside',
+            hovertemplate='<b>%{y}</b><br>Risk Contribution: %{x:.2f}%<br>Weight: %{customdata:.4f}<extra></extra>',
+            customdata=top_risk['weight']
+        ))
+        
+        fig.update_layout(
+            height=500,
+            plot_bgcolor='#0E1117',
+            paper_bgcolor='#0E1117',
+            font=dict(color='#FAFAFA'),
+            xaxis=dict(title="Risk Contribution (%)", gridcolor='#2A2A3E'),
+            yaxis=dict(title="", autorange='reversed'),
+            margin=dict(l=20, r=20, t=20, b=40)
+        )
+        
+        st.plotly_chart(fig, width='stretch', key="risk_contribution")
+        
+        # Risk vs Weight Scatter
+        st.markdown("<div class='section-header'><h3>Risk Contribution vs Portfolio Weight</h3></div>", unsafe_allow_html=True)
+        
+        fig_scatter = go.Figure()
+        
+        fig_scatter.add_trace(go.Scatter(
+            x=risk_budget['weight'] * 100,
+            y=risk_budget['risk_contribution_pct'],
+            mode='markers',
+            marker=dict(
+                size=10,
+                color=risk_budget['risk_contribution_pct'],
+                colorscale='Reds',
+                showscale=True,
+                colorbar=dict(title="Risk %")
+            ),
+            text=risk_budget['instrument_name'],
+            hovertemplate='<b>%{text}</b><br>Weight: %{x:.2f}%<br>Risk: %{y:.2f}%<extra></extra>'
+        ))
+        
+        # Add diagonal line (risk = weight)
+        max_val = max(risk_budget['weight'].max() * 100, risk_budget['risk_contribution_pct'].max())
+        fig_scatter.add_trace(go.Scatter(
+            x=[0, max_val],
+            y=[0, max_val],
+            mode='lines',
+            line=dict(color='#00D9FF', dash='dash'),
+            name='Risk = Weight',
+            hoverinfo='skip'
+        ))
+        
+        fig_scatter.update_layout(
+            height=500,
+            plot_bgcolor='#0E1117',
+            paper_bgcolor='#0E1117',
+            font=dict(color='#FAFAFA'),
+            xaxis=dict(title="Portfolio Weight (%)", gridcolor='#2A2A3E'),
+            yaxis=dict(title="Risk Contribution (%)", gridcolor='#2A2A3E'),
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig_scatter, width='stretch', key="risk_weight_scatter")
+        
+        # Detailed Risk Budget Table
+        st.markdown("<div class='section-header'><h3>Detailed Risk Budget</h3></div>", unsafe_allow_html=True)
+        
+        display_risk = risk_budget[['instrument_name', 'weight', 'risk_contribution', 'risk_contribution_pct']].copy()
+        display_risk.columns = ['Instrument', 'Weight', 'Risk Contribution', 'Risk %']
+        
+        st.dataframe(
+            display_risk.style.format({
+                'Weight': '{:.6f}',
+                'Risk Contribution': '{:.6f}',
+                'Risk %': '{:.2f}%'
+            }),
+            width='stretch',
             height=400
         )
 
@@ -788,11 +1012,11 @@ elif section == "TCA & Attribution":
         
         with col1:
             avg_slippage = tca_summary['avg_slippage_bps'].mean()
-            kpi_card("Avg Slippage", avg_slippage, None, '#FF5733', '.2f')
+            kpi_card("Avg Slippage", avg_slippage, None, '#FF5733', '.2f', ' bps')
         
         with col2:
             avg_impact = tca_summary['avg_market_impact_bps'].mean()
-            kpi_card("Avg Market Impact", avg_impact, None, '#F1C40F', '.2f')
+            kpi_card("Avg Market Impact", avg_impact, None, '#F1C40F', '.2f', ' bps')
         
         with col3:
             total_commission = tca_summary['total_commission'].sum()
@@ -958,10 +1182,10 @@ elif section == "TCA & Attribution":
                 'avg_market_impact_bps': '{:.2f}',
                 'total_market_impact_value': '{:,.2f}',
                 'total_pnl': '{:,.2f}',
-                'total_alpha': '{:,.2f}',
-                'total_beta': '{:,.2f}',
-                'total_cost': '{:,.2f}',
-                'total_timing': '{:,.2f}'
+                'total_alpha': '{:.2f}',
+                'total_beta': '{:.2f}',
+                'total_cost': '{:.2f}',
+                'total_timing': '{:.2f}'
             }),
             use_container_width=True,
             height=400
@@ -1155,7 +1379,7 @@ elif section == "Alerts & Monitoring":
             margin=dict(l=20, r=20, t=20, b=40)
         )
         
-        st.plotly_chart(fig, use_container_width=True, key="threshold_monitor")
+        st.plotly_chart(fig, width='stretch', key="threshold_monitor")
     
     # Audit Trail Section
     st.markdown("<br>", unsafe_allow_html=True)
@@ -1163,22 +1387,25 @@ elif section == "Alerts & Monitoring":
     
     audit_data = {
         'Timestamp': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
-        'Module': ['Risk Analytics'],
-        'Action': ['Daily Risk Calculation'],
+        'Module': ['Portfolio Optimization'],
+        'Action': ['Optimization with Constraints'],
         'Status': ['Success'],
-        'Records Processed': [len(risk_metrics)],
-        'Data Version': ['v1.0.0'],
+        'Records Processed': [len(target_weights)],
+        'Data Version': ['v2.0.0'],
         'Code Version': ['dashboard-v2.0.0']
     }
     
     audit_df = pd.DataFrame(audit_data)
     
-    st.dataframe(audit_df, use_container_width=True, height=150)
+    st.dataframe(audit_df, width='stretch', height=150)
     
     st.markdown("""
         <div class='alert-box alert-success'>
             <strong>Audit Ready</strong><br>
             All metrics are linked to data snapshots and code versions for full reproducibility.
-            Data lineage tracking enabled.
+            Data lineage tracking enabled. Portfolio optimization includes instrument names and enhanced risk metrics.
         </div>
     """, unsafe_allow_html=True)
+
+# ---------------- Footer Information ----------------
+st.markdown("<br><br>", unsafe_allow_html=True)
