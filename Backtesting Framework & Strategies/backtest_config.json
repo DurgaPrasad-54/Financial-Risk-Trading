@@ -1,0 +1,42 @@
+{
+    "version": "2.0.0",
+    "random_seed": 42,
+    "timestamp": "2025-10-07 20:35:27",
+    "transaction_costs": {
+        "commission_bps": 5,
+        "slippage_bps": 3,
+        "market_impact_bps": 2
+    },
+    "risk_constraints": {
+        "max_drawdown_pct": 0.2,
+        "max_volatility": 0.15,
+        "max_sector_exposure": 0.35,
+        "max_asset_exposure": 0.1,
+        "leverage_limit": 1.0
+    },
+    "position_sizing": {
+        "method": "volatility_targeted",
+        "target_volatility": 0.1,
+        "rebalance_frequency": "weekly",
+        "min_position_size": 0.01,
+        "max_position_size": 0.1
+    },
+    "walk_forward": {
+        "train_size": 0.7,
+        "test_size": 0.3,
+        "overlap": 0.5,
+        "min_train_periods": 50
+    },
+    "strategies": {
+        "momentum": {
+            "lookback_period": 1,
+            "holding_period": 1,
+            "threshold": 0.0
+        },
+        "mean_reversion": {
+            "lookback_period": 1,
+            "mean_window": 20,
+            "std_threshold": 1.5
+        }
+    }
+}

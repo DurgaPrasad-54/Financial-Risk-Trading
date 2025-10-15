@@ -1,0 +1,58 @@
+{
+    "momentum_standard": {
+        "Total Return": 2.6459186450262533,
+        "Volatility": 0.9939734040980207,
+        "Sharpe": 0.03532274365777555,
+        "Max Drawdown": -1.5109227063760378,
+        "Win Rate": 0.7237638881575483,
+        "Avg Transaction Cost": 4.94005997169965e-10,
+        "Total Transaction Cost": 9.381667892254805e-06,
+        "Gross Return": 2.6459280266941505,
+        "Net Return": 2.645918645026259,
+        "Avg Daily Return": 0.00013932487204603545,
+        "Best Day": 1.0769181764664808,
+        "Worst Day": -7.891179220236204
+    },
+    "momentum_walkforward": {
+        "Total Return": -2.950032486836682,
+        "Volatility": 1.7084101567755083,
+        "Sharpe": -0.07636823435734849,
+        "Max Drawdown": -5.523542041417829,
+        "Win Rate": 0.7213057213057213,
+        "Avg Transaction Cost": 1.1647005418895575e-09,
+        "Total Transaction Cost": 6.636463687686699e-06,
+        "Gross Return": -2.9500258503729975,
+        "Net Return": -2.950032486836686,
+        "Avg Daily Return": -0.0005177312191710575,
+        "Best Day": 1.0769181764664808,
+        "Worst Day": -7.891179220236204
+    },
+    "mean_reversion_standard": {
+        "Total Return": -8.437572214598644,
+        "Volatility": 0.31751468633865504,
+        "Sharpe": -0.3526195540736472,
+        "Max Drawdown": -843757221.4598644,
+        "Win Rate": 0.00036859565057132326,
+        "Avg Transaction Cost": 0.0005381834406737052,
+        "Total Transaction Cost": 10.220641721834337,
+        "Gross Return": 1.7830695072356786,
+        "Net Return": -8.43757221459866,
+        "Avg Daily Return": -0.00044429320281178766,
+        "Best Day": 2.350963484632062,
+        "Worst Day": -1.1836768831143423
+    },
+    "mean_reversion_walkforward": {
+        "Total Return": -4.263710411358766,
+        "Volatility": 0.28146637657042745,
+        "Sharpe": -0.6699451903187298,
+        "Max Drawdown": -426371041.1358766,
+        "Win Rate": 0.000702000702000702,
+        "Avg Transaction Cost": 0.0007061586819084461,
+        "Total Transaction Cost": 4.023692169514326,
+        "Gross Return": -0.24001824184444653,
+        "Net Return": -4.2637104113587725,
+        "Avg Daily Return": -0.0007482819254753901,
+        "Best Day": 0.29672150368310574,
+        "Worst Day": -1.1836768831143423
+    }
+}

@@ -175,13 +175,14 @@ with st.spinner("Loading data..."):
     backtest_results = load_csv_safe("./Backtesting Framework & Strategies/backtest_results.csv")
     backtest_wf = load_csv_safe("./Backtesting Framework & Strategies/backtest_results_walkforward.csv")
     
-    # NEW: Load updated portfolio optimization files with instrument names
+    # Load updated portfolio optimization files with instrument names
     target_weights = load_csv_safe("./Portfolio Optimization Module/target_weights_with_names.csv")
     trade_recommendations = load_csv_safe("./Portfolio Optimization Module/trade_recommendations_with_names.csv")
     portfolio_risk_returns = load_csv_safe("./Portfolio Optimization Module/portfolio_risk_return_report.csv")
     risk_budget = load_csv_safe("./Portfolio Optimization Module/risk_budget_report.csv")
     sector_allocation = load_csv_safe("./Portfolio Optimization Module/sector_allocation_report.csv")
     
+    # Load enhanced TCA data
     tca_summary = load_csv_safe("./Transaction Cost Analysis (TCA)/weekly_tca_summary.csv")
 
 # ---------------- Sidebar Navigation ----------------
@@ -216,7 +217,7 @@ for option, key in menu_options.items():
     if st.sidebar.button(
         option,
         key=f"nav_{key}",
-        use_container_width=True,
+        width='stretch',
         type="primary" if is_selected else "secondary"
     ):
         st.session_state.selected_section = option
@@ -264,15 +265,6 @@ st.sidebar.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Footer
-st.sidebar.markdown("""
-<div style='position: fixed; bottom: 0; left: 0; width: 19rem; padding: 1rem; background: #0E1117; border-top: 1px solid rgba(255, 255, 255, 0.05);'>
-    <p style='color: #666; font-size: 0.75rem; margin: 0; text-align: center;'>
-        © 2025 Risk Analytics Platform<br>
-        <span style='color: #00D9FF;'>Version 2.0.0</span>
-    </p>
-</div>
-""", unsafe_allow_html=True)
 
 # ---------------- Helper Functions ----------------
 def get_safe_value(series_or_df, column=None, index=-1, default=0.0):
@@ -316,7 +308,9 @@ def kpi_card(title, value, change=None, color='#00D9FF', format_str='.2f', suffi
         </div>
     """, unsafe_allow_html=True)
 
-# ---------------- EXECUTIVE DASHBOARD ----------------
+# ============================================================================
+# EXECUTIVE DASHBOARD
+# ============================================================================
 if section == "Executive Dashboard":
     st.title("Executive Dashboard")
     st.markdown("Comprehensive portfolio risk and performance overview")
@@ -339,7 +333,6 @@ if section == "Executive Dashboard":
     
     with col3:
         if not portfolio_risk_returns.empty and "Optimized Portfolio" in portfolio_risk_returns.columns:
-            # Extract return value from the string format
             return_str = portfolio_risk_returns[portfolio_risk_returns['Metric'] == 'Expected Annual Return']['Optimized Portfolio'].values
             if len(return_str) > 0:
                 val = float(return_str[0].strip('%'))
@@ -361,21 +354,18 @@ if section == "Executive Dashboard":
         st.markdown("<div class='section-header'><h3>Sector Exposure</h3></div>", unsafe_allow_html=True)
         if not sector_allocation.empty:
             sector_data = sector_allocation.copy() 
-            # Handle different possible column structures
             if len(sector_data.columns) == 2:
                 sector_data.columns = ['sector', 'target_weight']
-                sector_data['num_holdings'] = 1  # Default value
+                sector_data['num_holdings'] = 1
             elif len(sector_data.columns) == 3:
                 sector_data.columns = ['sector', 'target_weight', 'num_holdings']
             else:
-                # Use first available columns
                 sector_data = sector_data.iloc[:, :2]
                 sector_data.columns = ['sector', 'target_weight']
                 sector_data['num_holdings'] = 1
             
-            # FIX: Ensure target_weight is numeric before formatting
             sector_data['target_weight'] = pd.to_numeric(sector_data['target_weight'], errors='coerce')
-            sector_data = sector_data.dropna(subset=['target_weight'])  # Remove any NaN values
+            sector_data = sector_data.dropna(subset=['target_weight'])
             sector_data['target_weight'] = sector_data['target_weight'] * 100
             sector_data = sector_data.sort_values('target_weight')
             
@@ -417,7 +407,6 @@ if section == "Executive Dashboard":
                 metric = row['Metric']
                 value = row['Optimized Portfolio']
                 
-                # Determine color based on metric type
                 if 'Return' in metric or 'Sharpe' in metric:
                     color = '#2ECC71'
                 elif 'Volatility' in metric or 'Risk' in metric or 'VaR' in metric:
@@ -502,7 +491,9 @@ if section == "Executive Dashboard":
             
             st.plotly_chart(fig, width='stretch', key="tca_trend")
 
-# ---------------- RISK ANALYTICS ----------------
+# ============================================================================
+# RISK ANALYTICS
+# ============================================================================
 elif section == "Risk Analytics":
     st.title("Risk Analytics Deep Dive")
     st.markdown("Comprehensive risk metrics and factor exposure analysis")
@@ -583,13 +574,14 @@ elif section == "Risk Analytics":
         st.dataframe(sector_display.style.format({'Portfolio Weight (%)': '{:.4f}'}),
                     width='stretch', height=300)
 
-# ---------------- BACKTESTING COMPARISON ----------------
+# ============================================================================
+# BACKTESTING COMPARISON
+# ============================================================================
 elif section == "Backtesting Comparison":
     st.title("Backtesting Strategy Comparison")
     st.markdown("Performance comparison between strategies and validation methods")
     st.markdown("---")
     
-    # Combine datasets
     if not backtest_results.empty and not backtest_wf.empty:
         backtest_standard = backtest_results.copy()
         backtest_standard['Method'] = 'Standard'
@@ -599,7 +591,6 @@ elif section == "Backtesting Comparison":
         
         combined = pd.concat([backtest_standard, backtest_walkforward], ignore_index=True)
         
-        # Metrics comparison
         st.markdown("<div class='section-header'><h3>Strategy Performance Metrics</h3></div>", unsafe_allow_html=True)
         
         metrics = ['Total Return', 'Volatility', 'Sharpe', 'Max Drawdown']
@@ -649,7 +640,6 @@ elif section == "Backtesting Comparison":
         
         st.plotly_chart(fig, width='stretch', key="strategy_comparison")
         
-        # Detailed Table
         st.markdown("<div class='section-header'><h3>Detailed Comparison Table</h3></div>", unsafe_allow_html=True)
         
         st.dataframe(
@@ -663,7 +653,6 @@ elif section == "Backtesting Comparison":
             height=250
         )
         
-        # Key Insights
         st.markdown("<div class='section-header'><h3>Key Insights</h3></div>", unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
@@ -688,17 +677,17 @@ elif section == "Backtesting Comparison":
                 </div>
             """, unsafe_allow_html=True)
 
-# ---------------- PORTFOLIO OPTIMIZATION ----------------
+# ============================================================================
+# PORTFOLIO OPTIMIZATION
+# ============================================================================
 elif section == "Portfolio Optimization":
     st.title("Portfolio Optimization & Trade Recommendations")
     st.markdown("Target allocations with instrument names and recommended trades")
     st.markdown("---")
     
-    # Expected Risk/Return
     col1, col2, col3, col4 = st.columns(4)
     
     if not portfolio_risk_returns.empty:
-        # Parse metrics from the report
         metrics_dict = {}
         for _, row in portfolio_risk_returns.iterrows():
             metric = row['Metric']
@@ -731,7 +720,6 @@ elif section == "Portfolio Optimization":
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Trade Recommendations with Instrument Names
     st.markdown("<div class='section-header'><h3>Recommended Trades</h3></div>", unsafe_allow_html=True)
     
     if not trade_recommendations.empty and "change" in trade_recommendations.columns:
@@ -797,7 +785,6 @@ elif section == "Portfolio Optimization":
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Summary Statistics
         st.markdown("<div class='section-header'><h3>Trade Summary</h3></div>", unsafe_allow_html=True)
         
         total_turnover = trades['abs_change'].sum()
@@ -823,7 +810,6 @@ elif section == "Portfolio Optimization":
                 </div>
             """, unsafe_allow_html=True)
         
-        # Full Trade Table with Instrument Names
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<div class='section-header'><h3>Complete Trade List</h3></div>", unsafe_allow_html=True)
         
@@ -840,7 +826,6 @@ elif section == "Portfolio Optimization":
             height=400
         )
         
-        # Sector-wise Trade Summary
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<div class='section-header'><h3>Sector-wise Trade Analysis</h3></div>", unsafe_allow_html=True)
         
@@ -876,14 +861,15 @@ elif section == "Portfolio Optimization":
             
             st.plotly_chart(fig, width='stretch', key="sector_trades")
 
-# ---------------- RISK BUDGET ANALYSIS ----------------
+# ============================================================================
+# RISK BUDGET ANALYSIS
+# ============================================================================
 elif section == "Risk Budget Analysis":
     st.title("Risk Budget & Contribution Analysis")
     st.markdown("Detailed risk contribution by asset and sector")
     st.markdown("---")
     
     if not risk_budget.empty:
-        # Top Risk Contributors
         st.markdown("<div class='section-header'><h3>Top Risk Contributors</h3></div>", unsafe_allow_html=True)
         
         col1, col2, col3, col4 = st.columns(4)
@@ -911,7 +897,6 @@ elif section == "Risk Budget Analysis":
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Risk Contribution Chart
         top_risk = risk_budget.nlargest(15, 'risk_contribution')
         
         fig = go.Figure()
@@ -939,7 +924,6 @@ elif section == "Risk Budget Analysis":
         
         st.plotly_chart(fig, width='stretch', key="risk_contribution")
         
-        # Risk vs Weight Scatter
         st.markdown("<div class='section-header'><h3>Risk Contribution vs Portfolio Weight</h3></div>", unsafe_allow_html=True)
         
         fig_scatter = go.Figure()
@@ -959,7 +943,6 @@ elif section == "Risk Budget Analysis":
             hovertemplate='<b>%{text}</b><br>Weight: %{x:.2f}%<br>Risk: %{y:.2f}%<extra></extra>'
         ))
         
-        # Add diagonal line (risk = weight)
         max_val = max(risk_budget['weight'].max() * 100, risk_budget['risk_contribution_pct'].max())
         fig_scatter.add_trace(go.Scatter(
             x=[0, max_val],
@@ -982,7 +965,6 @@ elif section == "Risk Budget Analysis":
         
         st.plotly_chart(fig_scatter, width='stretch', key="risk_weight_scatter")
         
-        # Detailed Risk Budget Table
         st.markdown("<div class='section-header'><h3>Detailed Risk Budget</h3></div>", unsafe_allow_html=True)
         
         display_risk = risk_budget[['instrument_name', 'weight', 'risk_contribution', 'risk_contribution_pct']].copy()
@@ -998,17 +980,18 @@ elif section == "Risk Budget Analysis":
             height=400
         )
 
-# ---------------- TCA & ATTRIBUTION ----------------
+# ============================================================================
+# TCA & ATTRIBUTION (ENHANCED)
+# ============================================================================
 elif section == "TCA & Attribution":
     st.title("Transaction Cost Analysis & P&L Attribution")
     st.markdown("Execution quality metrics and performance attribution")
     st.markdown("---")
     
     if not tca_summary.empty:
-        # Summary KPIs
         st.markdown("<div class='section-header'><h3>TCA Summary Metrics</h3></div>", unsafe_allow_html=True)
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
             avg_slippage = tca_summary['avg_slippage_bps'].mean()
@@ -1020,12 +1003,81 @@ elif section == "TCA & Attribution":
         
         with col3:
             total_commission = tca_summary['total_commission'].sum()
-            kpi_card("Total Commission", total_commission, None, '#00D9FF', ',.0f')
+            kpi_card("Total Commission", total_commission, None, '#00D9FF', ',.0f' )
         
         with col4:
             total_pnl = tca_summary['total_pnl'].sum()
             pnl_color = '#2ECC71' if total_pnl > 0 else '#E74C3C'
             kpi_card("Total P&L", total_pnl, None, pnl_color, ',.0f')
+        
+        with col5:
+            if 'cost_to_pnl_ratio' in tca_summary.columns:
+                avg_cost_ratio = tca_summary['cost_to_pnl_ratio'].mean()
+                ratio_color = '#E74C3C' if avg_cost_ratio > 10 else '#2ECC71'
+                kpi_card("Cost/P&L Ratio", avg_cost_ratio, None, ratio_color, '.2f', '%')
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Enhanced Cost Breakdown
+        st.markdown("<div class='section-header'><h3>Cost Components Breakdown</h3></div>", unsafe_allow_html=True)
+        
+        col_cost1, col_cost2 = st.columns(2)
+        
+        with col_cost1:
+            # Cost breakdown pie chart
+            total_slippage = tca_summary['total_slippage_value'].sum()
+            total_commission_val = tca_summary['total_commission'].sum()
+            total_market_impact = tca_summary['total_market_impact_value'].sum()
+            
+            cost_breakdown = pd.DataFrame({
+                'Component': ['Slippage', 'Commission', 'Market Impact'],
+                'Value': [abs(total_slippage), abs(total_commission_val), abs(total_market_impact)]
+            })
+            
+            fig_cost_pie = go.Figure(data=[go.Pie(
+                labels=cost_breakdown['Component'],
+                values=cost_breakdown['Value'],
+                marker=dict(colors=['#FF6B6B', '#4ECDC4', '#FFD93D']),
+                hole=0.4,
+                hovertemplate='<b>%{label}</b><br>Value: $%{value:,.0f}<br>Percent: %{percent}<extra></extra>'
+            )])
+            
+            fig_cost_pie.update_layout(
+                height=350,
+                plot_bgcolor='#0E1117',
+                paper_bgcolor='#0E1117',
+                font=dict(color='#FAFAFA'),
+                showlegend=True,
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            
+            st.plotly_chart(fig_cost_pie, width='stretch', key="cost_pie")
+        
+        with col_cost2:
+            # Cost breakdown bar chart
+            fig_cost_bar = go.Figure()
+            
+            fig_cost_bar.add_trace(go.Bar(
+                x=cost_breakdown['Component'],
+                y=cost_breakdown['Value'],
+                marker_color=['#FF6B6B', '#4ECDC4', '#FFD93D'],
+                text=cost_breakdown['Value'].apply(lambda x: f'${x:,.0f}'),
+                textposition='outside',
+                hovertemplate='<b>%{x}</b><br>Value: $%{y:,.0f}<extra></extra>'
+            ))
+            
+            fig_cost_bar.update_layout(
+                height=350,
+                plot_bgcolor='#0E1117',
+                paper_bgcolor='#0E1117',
+                font=dict(color='#FAFAFA'),
+                xaxis=dict(title="Cost Component", gridcolor='#2A2A3E'),
+                yaxis=dict(title="Value (USD)", gridcolor='#2A2A3E'),
+                showlegend=False,
+                margin=dict(l=20, r=20, t=20, b=40)
+            )
+            
+            st.plotly_chart(fig_cost_bar, width='stretch', key="cost_bar")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -1033,7 +1085,6 @@ elif section == "TCA & Attribution":
         st.markdown("<div class='section-header'><h3>P&L Attribution Breakdown</h3></div>", unsafe_allow_html=True)
         
         if all(col in tca_summary.columns for col in ['total_alpha', 'total_beta', 'total_cost', 'total_timing']):
-            # Weekly attribution stacked bar
             fig = go.Figure()
             
             fig.add_trace(go.Bar(
@@ -1041,7 +1092,7 @@ elif section == "TCA & Attribution":
                 x=tca_summary.index,
                 y=tca_summary['total_alpha'],
                 marker_color='#2ECC71',
-                hovertemplate='Alpha: %{y:,.0f}<extra></extra>'
+                hovertemplate='Alpha: $%{y:,.0f}<extra></extra>'
             ))
             
             fig.add_trace(go.Bar(
@@ -1049,15 +1100,15 @@ elif section == "TCA & Attribution":
                 x=tca_summary.index,
                 y=tca_summary['total_beta'],
                 marker_color='#00D9FF',
-                hovertemplate='Beta: %{y:,.0f}<extra></extra>'
+                hovertemplate='Beta: $%{y:,.0f}<extra></extra>'
             ))
             
             fig.add_trace(go.Bar(
                 name='Cost',
                 x=tca_summary.index,
-                y=tca_summary['total_cost'],
+                y=-tca_summary['total_cost'],
                 marker_color='#E74C3C',
-                hovertemplate='Cost: %{y:,.0f}<extra></extra>'
+                hovertemplate='Cost: $%{y:,.0f}<extra></extra>'
             ))
             
             fig.add_trace(go.Bar(
@@ -1065,7 +1116,7 @@ elif section == "TCA & Attribution":
                 x=tca_summary.index,
                 y=tca_summary['total_timing'],
                 marker_color='#F1C40F',
-                hovertemplate='Timing: %{y:,.0f}<extra></extra>'
+                hovertemplate='Timing: $%{y:,.0f}<extra></extra>'
             ))
             
             fig.update_layout(
@@ -1075,14 +1126,13 @@ elif section == "TCA & Attribution":
                 paper_bgcolor='#0E1117',
                 font=dict(color='#FAFAFA'),
                 xaxis=dict(title="Week", gridcolor='#2A2A3E'),
-                yaxis=dict(title="P&L Attribution", gridcolor='#2A2A3E'),
+                yaxis=dict(title="P&L Attribution (USD)", gridcolor='#2A2A3E'),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 hovermode='x unified'
             )
             
-            st.plotly_chart(fig, use_container_width=True, key="pnl_attribution")
+            st.plotly_chart(fig, width='stretch', key="pnl_attribution")
             
-            # Attribution Summary
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("<div class='section-header'><h3>Cumulative Attribution</h3></div>", unsafe_allow_html=True)
             
@@ -1091,29 +1141,70 @@ elif section == "TCA & Attribution":
             total_cost = tca_summary['total_cost'].sum()
             total_timing = tca_summary['total_timing'].sum()
             
-            attribution_df = pd.DataFrame({
-                'Component': ['Alpha', 'Beta', 'Cost', 'Timing'],
-                'Value': [total_alpha, total_beta, total_cost, total_timing],
-                'Color': ['#2ECC71', '#00D9FF', '#E74C3C', '#F1C40F']
-            })
+            col_attr1, col_attr2 = st.columns(2)
             
-            fig_pie = go.Figure(data=[go.Pie(
-                labels=attribution_df['Component'],
-                values=attribution_df['Value'].abs(),
-                marker=dict(colors=attribution_df['Color']),
-                hole=0.4,
-                hovertemplate='<b>%{label}</b><br>Value: %{value:,.0f}<br>Percent: %{percent}<extra></extra>'
-            )])
+            with col_attr1:
+                attribution_df = pd.DataFrame({
+                    'Component': ['Alpha', 'Beta', 'Cost', 'Timing'],
+                    'Value': [total_alpha, total_beta, -total_cost, total_timing],
+                    'Color': ['#2ECC71', '#00D9FF', '#E74C3C', '#F1C40F']
+                })
+                
+                fig_pie = go.Figure(data=[go.Pie(
+                    labels=attribution_df['Component'],
+                    values=attribution_df['Value'].abs(),
+                    marker=dict(colors=attribution_df['Color']),
+                    hole=0.4,
+                    hovertemplate='<b>%{label}</b><br>Value: $%{value:,.0f}<br>Percent: %{percent}<extra></extra>'
+                )])
+                
+                fig_pie.update_layout(
+                    height=400,
+                    plot_bgcolor='#0E1117',
+                    paper_bgcolor='#0E1117',
+                    font=dict(color='#FAFAFA'),
+                    showlegend=True
+                )
+                
+                st.plotly_chart(fig_pie, width='stretch', key="attribution_pie")
             
-            fig_pie.update_layout(
-                height=400,
-                plot_bgcolor='#0E1117',
-                paper_bgcolor='#0E1117',
-                font=dict(color='#FAFAFA'),
-                showlegend=True
-            )
-            
-            st.plotly_chart(fig_pie, use_container_width=True, key="attribution_pie")
+            with col_attr2:
+                # Attribution summary cards
+                st.markdown(f"""
+                    <div class='trade-card' style='border-color: #2ECC71'>
+                        <div style='display: flex; justify-content: space-between;'>
+                            <span style='font-weight: 600;'>Total Alpha</span>
+                            <span style='color: #2ECC71; font-weight: 700; font-size: 1.1rem;'>${total_alpha:,.0f}</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown(f"""
+                    <div class='trade-card' style='border-color: #00D9FF'>
+                        <div style='display: flex; justify-content: space-between;'>
+                            <span style='font-weight: 600;'>Total Beta</span>
+                            <span style='color: #00D9FF; font-weight: 700; font-size: 1.1rem;'>${total_beta:,.0f}</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown(f"""
+                    <div class='trade-card' style='border-color: #E74C3C'>
+                        <div style='display: flex; justify-content: space-between;'>
+                            <span style='font-weight: 600;'>Total Cost</span>
+                            <span style='color: #E74C3C; font-weight: 700; font-size: 1.1rem;'>-${abs(total_cost):,.0f}</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown(f"""
+                    <div class='trade-card' style='border-color: #F1C40F'>
+                        <div style='display: flex; justify-content: space-between;'>
+                            <span style='font-weight: 600;'>Total Timing</span>
+                            <span style='color: #F1C40F; font-weight: 700; font-size: 1.1rem;'>${total_timing:,.0f}</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -1134,6 +1225,10 @@ elif section == "TCA & Attribution":
                 hovertemplate='Slippage: %{y:.2f} bps<extra></extra>'
             ))
             
+            avg_slip = tca_summary['avg_slippage_bps'].mean()
+            fig_slip.add_hline(y=avg_slip, line_dash="dash", line_color="#FFD700",
+                              annotation_text=f"Mean: {avg_slip:.2f} bps")
+            
             fig_slip.update_layout(
                 height=300,
                 plot_bgcolor='#0E1117',
@@ -1143,7 +1238,7 @@ elif section == "TCA & Attribution":
                 yaxis=dict(title="Slippage (bps)", gridcolor='#2A2A3E')
             )
             
-            st.plotly_chart(fig_slip, use_container_width=True, key="slippage_trend")
+            st.plotly_chart(fig_slip, width='stretch', key="slippage_trend")
         
         with col_impact:
             st.markdown("<div class='section-header'><h3>Market Impact Trend</h3></div>", unsafe_allow_html=True)
@@ -1159,6 +1254,10 @@ elif section == "TCA & Attribution":
                 hovertemplate='Market Impact: %{y:.2f} bps<extra></extra>'
             ))
             
+            avg_impact_val = tca_summary['avg_market_impact_bps'].mean()
+            fig_impact.add_hline(y=avg_impact_val, line_dash="dash", line_color="#00D9FF",
+                                annotation_text=f"Mean: {avg_impact_val:.2f} bps")
+            
             fig_impact.update_layout(
                 height=300,
                 plot_bgcolor='#0E1117',
@@ -1168,30 +1267,93 @@ elif section == "TCA & Attribution":
                 yaxis=dict(title="Market Impact (bps)", gridcolor='#2A2A3E')
             )
             
-            st.plotly_chart(fig_impact, use_container_width=True, key="impact_trend")
+            st.plotly_chart(fig_impact, width='stretch', key="impact_trend")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Trading Volume Analysis
+        if 'num_trades' in tca_summary.columns and 'total_volume' in tca_summary.columns:
+            st.markdown("<div class='section-header'><h3>Trading Volume & Activity</h3></div>", unsafe_allow_html=True)
+            
+            col_vol1, col_vol2 = st.columns(2)
+            
+            with col_vol1:
+                fig_trades = go.Figure()
+                fig_trades.add_trace(go.Bar(
+                    x=tca_summary.index,
+                    y=tca_summary['num_trades'],
+                    marker_color='#00D9FF',
+                    hovertemplate='Week %{x}<br>Trades: %{y}<extra></extra>'
+                ))
+                
+                fig_trades.update_layout(
+                    title="Number of Trades per Week",
+                    height=300,
+                    plot_bgcolor='#0E1117',
+                    paper_bgcolor='#0E1117',
+                    font=dict(color='#FAFAFA'),
+                    xaxis=dict(title="Week", gridcolor='#2A2A3E'),
+                    yaxis=dict(title="Number of Trades", gridcolor='#2A2A3E')
+                )
+                
+                st.plotly_chart(fig_trades, width='stretch', key="num_trades")
+            
+            with col_vol2:
+                fig_volume = go.Figure()
+                fig_volume.add_trace(go.Bar(
+                    x=tca_summary.index,
+                    y=tca_summary['total_volume'],
+                    marker_color='#2ECC71',
+                    hovertemplate='Week %{x}<br>Volume: %{y:,.0f}<extra></extra>'
+                ))
+                
+                fig_volume.update_layout(
+                    title="Trading Volume per Week",
+                    height=300,
+                    plot_bgcolor='#0E1117',
+                    paper_bgcolor='#0E1117',
+                    font=dict(color='#FAFAFA'),
+                    xaxis=dict(title="Week", gridcolor='#2A2A3E'),
+                    yaxis=dict(title="Total Volume", gridcolor='#2A2A3E')
+                )
+                
+                st.plotly_chart(fig_volume, width='stretch', key="total_volume")
         
         # Detailed TCA Table
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<div class='section-header'><h3>Detailed TCA Data</h3></div>", unsafe_allow_html=True)
         
+        format_dict = {
+            'avg_slippage_bps': '{:.2f}',
+            'total_slippage_value': '{:,.2f}',
+            'total_commission': '{:,.2f}',
+            'avg_market_impact_bps': '{:.2f}',
+            'total_market_impact_value': '{:,.2f}',
+            'total_pnl': '{:,.2f}',
+            'total_alpha': '{:,.2f}',
+            'total_beta': '{:,.2f}',
+            'total_cost': '{:,.2f}',
+            'total_timing': '{:,.2f}'
+        }
+        
+        if 'cost_to_pnl_ratio' in tca_summary.columns:
+            format_dict['cost_to_pnl_ratio'] = '{:.2f}%'
+        if 'avg_cost_per_trade' in tca_summary.columns:
+            format_dict['avg_cost_per_trade'] = '{:,.2f}'
+        if 'num_trades' in tca_summary.columns:
+            format_dict['num_trades'] = '{:,.0f}'
+        if 'total_volume' in tca_summary.columns:
+            format_dict['total_volume'] = '{:,.0f}'
+        
         st.dataframe(
-            tca_summary.style.format({
-                'avg_slippage_bps': '{:.2f}',
-                'total_slippage_value': '{:,.2f}',
-                'total_commission': '{:,.2f}',
-                'avg_market_impact_bps': '{:.2f}',
-                'total_market_impact_value': '{:,.2f}',
-                'total_pnl': '{:,.2f}',
-                'total_alpha': '{:.2f}',
-                'total_beta': '{:.2f}',
-                'total_cost': '{:.2f}',
-                'total_timing': '{:.2f}'
-            }),
-            use_container_width=True,
+            tca_summary.style.format(format_dict),
+            width='stretch',
             height=400
         )
 
-# ---------------- ALERTS & MONITORING ----------------
+# ============================================================================
+# ALERTS & MONITORING
+# ============================================================================
 elif section == "Alerts & Monitoring":
     st.title("Alerts & Risk Monitoring")
     st.markdown("Real-time breach alerts and risk threshold monitoring")
@@ -1256,7 +1418,7 @@ elif section == "Alerts & Monitoring":
     
     # TCA Alerts
     if not tca_summary.empty and 'avg_slippage_bps' in tca_summary.columns:
-        slippage_threshold = 1.0
+        slippage_threshold = 20.0
         latest_slippage = get_safe_value(tca_summary['avg_slippage_bps'])
         
         if abs(latest_slippage) > slippage_threshold:
@@ -1267,11 +1429,23 @@ elif section == "Alerts & Monitoring":
                 'metric': latest_slippage
             })
     
+    # Cost-to-P&L Ratio Alert
+    if not tca_summary.empty and 'cost_to_pnl_ratio' in tca_summary.columns:
+        cost_threshold = 10.0
+        latest_cost_ratio = get_safe_value(tca_summary['cost_to_pnl_ratio'])
+        
+        if latest_cost_ratio > cost_threshold:
+            alerts.append({
+                'type': 'danger',
+                'title': 'High Cost-to-P&L Ratio',
+                'message': f'Cost consuming {latest_cost_ratio:.2f}% of P&L, exceeds {cost_threshold}% threshold',
+                'metric': latest_cost_ratio
+            })
+    
     # Display Alerts
     st.markdown("<div class='section-header'><h3>Active Alerts</h3></div>", unsafe_allow_html=True)
     
     if alerts:
-        # Count by type
         danger_count = sum(1 for a in alerts if a['type'] == 'danger')
         warning_count = sum(1 for a in alerts if a['type'] == 'warning')
         
@@ -1303,7 +1477,6 @@ elif section == "Alerts & Monitoring":
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Display individual alerts
         for alert in alerts:
             alert_class = f"alert-{alert['type']}"
             st.markdown(f"""
@@ -1326,7 +1499,6 @@ elif section == "Alerts & Monitoring":
     # Monitoring Dashboard
     st.markdown("<div class='section-header'><h3>Risk Thresholds Monitor</h3></div>", unsafe_allow_html=True)
     
-    # Create threshold visualization
     if not risk_metrics.empty:
         thresholds = {
             'VaR 95%': {'current': get_safe_value(risk_metrics.get("VaR_95", pd.Series([0]))), 
@@ -1387,10 +1559,10 @@ elif section == "Alerts & Monitoring":
     
     audit_data = {
         'Timestamp': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
-        'Module': ['Portfolio Optimization'],
-        'Action': ['Optimization with Constraints'],
+        'Module': ['TCA & Portfolio Optimization'],
+        'Action': ['Enhanced TCA Analysis & Optimization'],
         'Status': ['Success'],
-        'Records Processed': [len(target_weights)],
+        'Records Processed': [len(target_weights) + len(tca_summary)],
         'Data Version': ['v2.0.0'],
         'Code Version': ['dashboard-v2.0.0']
     }
@@ -1403,9 +1575,6 @@ elif section == "Alerts & Monitoring":
         <div class='alert-box alert-success'>
             <strong>Audit Ready</strong><br>
             All metrics are linked to data snapshots and code versions for full reproducibility.
-            Data lineage tracking enabled. Portfolio optimization includes instrument names and enhanced risk metrics.
+            Data lineage tracking enabled. Enhanced TCA with P&L attribution, market impact analysis, and cost optimization recommendations.
         </div>
     """, unsafe_allow_html=True)
-
-# ---------------- Footer Information ----------------
-st.markdown("<br><br>", unsafe_allow_html=True)
